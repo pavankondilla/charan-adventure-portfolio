@@ -1,0 +1,87 @@
+﻿const {chromium}=require('C:/Users/DELL/AppData/Local/npm-cache/_npx/420ff84f11983ee5/node_modules/playwright');
+const assert=require('node:assert/strict');
+(async()=>{
+ const browser=await chromium.launch({channel:'msedge',headless:true});
+ const page=await browser.newPage({viewport:{width:1440,height:960},deviceScaleFactor:1});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://localhost:8080',{waitUntil:'networkidle'});
+ await page.waitForFunction(()=>window.__journeyDebug?.state.assetsReady);
+ const ids=['intro','websites','trainee','sure','business','healthcare','consulting','commerce','products','health'];
+ assert.equal(await page.locator('.stop').count(),ids.length);
+ for(const [i,id] of ids.entries()){
+  await page.locator(`#journey-links a[href="#${id}"]`).click();
+  await page.waitForFunction(i=>window.__journeyDebug.state.active===i,i);
+  await page.waitForTimeout(800);
+  assert.equal(await page.locator('.panel:visible').count(),0);
+  assert.equal(await page.locator('#checkpoints svg, .checkpoint-label, .checkpoint-badge').count(),0);
+  await page.waitForFunction(()=>window.__journeyDebug.state.greeting);
+  assert.equal(await page.evaluate(()=>window.__journeyDebug.state.travelerStage),i===0?0:i<4?1:2);
+  const checkpoint=page.locator(`[data-checkpoint="${i}"]`);
+  assert.equal(await checkpoint.evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
+  await checkpoint.click();
+  assert.equal(await page.locator('dialog').evaluate(el=>el.open),true);
+  assert.ok((await page.locator('#dialog-title').textContent()).length>0);
+  assert.equal(await page.locator('dialog .work-list li').count()>0,true);
+  assert.match(await page.locator('dialog').textContent(),/Tools & working setup/);
+  await page.keyboard.press('Escape');
+ }
+ await page.locator('#journey-links a[href="#sure"]').click();await page.waitForTimeout(1200);
+ await page.screenshot({path:'desktop-preview.png'});
+ await page.locator('[data-checkpoint="3"]').click();
+ assert.match(await page.locator('dialog').textContent(),/5 hours → 5 minutes/);
+ await page.screenshot({path:'checkpoint-preview.png'});await page.keyboard.press('Escape');
+ await page.setViewportSize({width:390,height:844});await page.waitForTimeout(1000);
+ await page.locator('[data-checkpoint="3"]').click();
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ await page.screenshot({path:'mobile-detail-preview.png'});await page.keyboard.press('Escape');
+ await page.screenshot({path:'mobile-preview.png'});
+ await page.locator('[data-checkpoint="3"]').focus();await page.keyboard.press('Enter');
+ assert.equal(await page.locator('dialog').evaluate(el=>el.open),true);await page.keyboard.press('Escape');
+ await page.setViewportSize({width:1440,height:960});
+ await page.locator('#journey-links a[href="#healthcare"]').click();await page.waitForTimeout(1600);
+ await page.screenshot({path:'founder-preview.png'});
+ await page.locator('#journey-links a[href="#intro"]').click();await page.waitForTimeout(1600);
+ await page.screenshot({path:'start-preview.png'});
+ await page.locator('#view-toggle').click();
+ assert.equal(await page.locator('.panel:visible').count(),10);
+ assert.equal(await page.locator('.panel[inert]').count(),0);
+ await page.emulateMedia({reducedMotion:'reduce'});await page.reload({waitUntil:'networkidle'});
+ await page.waitForFunction(()=>window.__journeyDebug.state.assetsReady);
+ assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('simple')),false);
+ await page.locator('#journey-links a[href="#healthcare"]').click();
+ await page.waitForFunction(()=>window.__journeyDebug.state.active===5);
+ await page.locator('[data-checkpoint="5"]').click();
+ assert.equal(await page.locator('dialog').evaluate(el=>el.open),true);await page.keyboard.press('Escape');
+ await page.locator('#view-toggle').click();
+ assert.equal(await page.locator('.panel:visible').count(),10);
+ await page.locator('#view-toggle').click();
+ await page.locator('[data-checkpoint="5"]').click();await page.keyboard.press('Escape');
+ await page.route('**/assets/traveler-walk-v6.png',route=>route.abort());await page.reload({waitUntil:'networkidle'});
+ await page.waitForFunction(()=>!document.querySelector('.asset-status').hidden);
+ assert.equal(await page.locator('.panel:visible').count(),10);
+ await page.unroute('**/assets/traveler-walk-v6.png');
+ await page.locator('#view-toggle').click();
+ await page.waitForFunction(()=>window.__journeyDebug.state.assetsReady&&!window.__journeyDebug.state.simple);
+ assert.equal(await page.locator('.asset-status').isVisible(),false);
+ const fileURL=require('node:url').pathToFileURL(require('node:path').resolve('index.html')).href;
+ for(const reducedMotion of ['no-preference','reduce']){
+  await page.emulateMedia({reducedMotion});
+  await page.goto(fileURL,{waitUntil:'load'});
+  await page.waitForFunction(()=>window.__journeyDebug.state.assetsReady);
+  assert.equal(await page.evaluate(()=>window.__journeyDebug.state.simple),false);
+  for(const [i,id] of ids.entries()){
+   await page.locator(`#journey-links a[href="#${id}"]`).click();
+   await page.waitForFunction(i=>window.__journeyDebug.state.active===i,i);
+   await page.locator(`[data-checkpoint="${i}"]`).click();
+   assert.equal(await page.locator('dialog').evaluate(el=>el.open),true);
+   await page.keyboard.press('Escape');
+  }
+  await page.locator('#view-toggle').click();assert.equal(await page.locator('.panel:visible').count(),10);
+  await page.locator('#view-toggle').click();
+  await page.locator('[data-checkpoint="9"]').click();await page.keyboard.press('Escape');
+ }
+ await page.screenshot({path:'adventure-fixed-preview.png'});
+ assert.deepEqual(errors,[]);
+ console.log('PASS: HTTP and direct-file Adventure mode; all 10 checkpoints in normal and reduced motion; reading/adventure switching; 3 outfits; keyboard dialogs; desktop/mobile layout; image failure fallback; no browser exceptions.');
+ await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});
