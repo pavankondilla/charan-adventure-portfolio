@@ -11,7 +11,7 @@
  const sections=[...document.querySelectorAll('.stop')], panels=sections.map(s=>s.querySelector('.panel'));
  const canvas=document.querySelector('canvas');let ctx;try{ctx=canvas.getContext('2d');}catch{}const reduce=matchMedia('(prefers-reduced-motion: reduce)');
  const fill=document.querySelector('#progress-fill'),percent=document.querySelector('#percent'),locationLabel=document.querySelector('#location'),sign=document.querySelector('#world-sign'),toggle=document.querySelector('#view-toggle');
- let simple=false,width=innerWidth,height=innerHeight,maxScroll=1,offsets=[],target=0,progress=0,lastTime=0,active=-1,phase=0,direction=1,arrival=0,assetsReady=false,staticDrawn=false,raf=0;
+ let simple=false,width=innerWidth,height=innerHeight,maxScroll=1,offsets=[],target=0,progress=0,lastTime=0,active=-1,phase=0,direction=1,arrival=0,assetsReady=false,staticDrawn=false,raf=0,screenLockUntil=0,touchStartY=0;
  const distance=850*(count-1),startX=250;
  const ground=x=>680-x*.065+14*Math.sin(x/245);
  const motion=window.createJourneyMotion(startX,850,count,ground);
@@ -20,9 +20,21 @@
  function resize(preserve=false){const saved=target;width=innerWidth;height=innerHeight;const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx?.setTransform(dpr,0,0,dpr,0,0);maxScroll=Math.max(1,document.documentElement.scrollHeight-height);offsets=sections.map(s=>s.offsetTop);if(preserve&&!simple)scrollTo({top:saved*maxScroll,behavior:'instant'});target=Math.max(0,Math.min(1,scrollY/maxScroll));staticDrawn=false;wake();}
  function setSimple(value){simple=value;checkpoints.forEach(b=>b.hidden=true);active=-1;document.body.classList.toggle('simple',simple);toggle.setAttribute('aria-pressed',String(!simple));toggle.firstChild.textContent=simple?'Adventure mode ':'Reading mode ';toggle.setAttribute('aria-label',simple?'Switch to Adventure mode':'Adventure mode is active. Switch to Reading mode');resize();}
  function go(i,instant=false){if(simple){sections[i].scrollIntoView({behavior:reduce.matches||instant?'instant':'smooth'});}else{const destination=i/count+.025;progress=destination;target=destination;motion.jump(i);scrollTo({top:maxScroll*destination,behavior:'instant'});active=-1;}wake();}
+ function moveLocked(direction){
+  if(simple||dialog.open||Date.now()<screenLockUntil)return;
+  const from=Math.max(0,active<0?Math.round(target*count):active),next=Math.max(0,Math.min(count-1,from+direction));
+  if(next===from)return;
+  screenLockUntil=Date.now()+900;go(next);
+ }
  toggle.addEventListener('click',async()=>{const i=Math.max(0,active);if(simple&&!assetsReady){toggle.disabled=true;const ready=await loadArtwork();toggle.disabled=false;if(!ready)return;}setSimple(!simple);go(i,true);});
  reduce.addEventListener('change',()=>{staticDrawn=false;wake();});
  addEventListener('resize',()=>resize(true));addEventListener('scroll',()=>{target=Math.max(0,Math.min(1,scrollY/maxScroll));wake();},{passive:true});
+ // Adventure mode advances one checkpoint per deliberate scroll, swipe, or navigation key.
+ addEventListener('wheel',e=>{if(simple||dialog.open||!e.deltaY)return;e.preventDefault();moveLocked(e.deltaY>0?1:-1);},{passive:false});
+ addEventListener('touchstart',e=>{touchStartY=e.changedTouches[0]?.clientY||0;},{passive:true});
+ addEventListener('touchmove',e=>{if(!simple&&!dialog.open)e.preventDefault();},{passive:false});
+ addEventListener('touchend',e=>{if(simple||dialog.open)return;const end=e.changedTouches[0]?.clientY||touchStartY;if(Math.abs(touchStartY-end)>36)moveLocked(touchStartY>end?1:-1);},{passive:true});
+ addEventListener('keydown',e=>{if(simple||dialog.open||e.defaultPrevented||e.metaKey||e.ctrlKey||e.altKey)return;if(['INPUT','TEXTAREA','SELECT','BUTTON'].includes(document.activeElement?.tagName))return;const next=['ArrowDown','PageDown',' '],previous=['ArrowUp','PageUp'];if(next.includes(e.key)||previous.includes(e.key)){e.preventDefault();moveLocked(next.includes(e.key)?1:-1);}});
  document.addEventListener('click',e=>{const a=e.target.closest('a[href^="#"]');if(!a||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;const id=a.getAttribute('href').slice(1),i=chapters.findIndex(c=>c.id===id);if(i<0)return;e.preventDefault();history.replaceState(null,'','#'+id);go(i);});
  const dialog=document.querySelector('#build-dialog'),dialogContent=document.querySelector('#dialog-content');let lastFocus;
  function openDialog(body){lastFocus=document.activeElement;dialogContent.innerHTML=body;if(!dialog.open)dialog.showModal();document.querySelector('#dialog-close').focus();}
@@ -101,5 +113,5 @@
  }
  setSimple(simple);resize();if(!ctx)setSimple(true);wake();
  if(location.hash){const i=chapters.findIndex(c=>c.id===location.hash.slice(1));if(i>=0)setTimeout(()=>go(i,true),100);}
- window.__journeyDebug={ground,travel,get state(){return {progress,target,active,direction,simple,assetsReady,width,height,chapterCount:count,greeting,travelerStage,motion:{...motion.state},footY:ground(motion.state.x)};}};
+ window.__journeyDebug={ground,travel,get state(){return {progress,target,active,direction,simple,screenLocked:!simple,assetsReady,width,height,chapterCount:count,greeting,travelerStage,motion:{...motion.state},footY:ground(motion.state.x)};}};
 })();
