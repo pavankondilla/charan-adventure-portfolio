@@ -1,5 +1,7 @@
 # Charan’s adventure portfolio
 
+Live site: https://pavankondilla.github.io/charan-adventure-portfolio/
+
 A frontend-only, image-based village-to-city journey, focused on healthcare automation and the supplied Dispensed role. Nine stops cover foundations, Srikara Hospitals, Linlekunda, business automation, personal products, leadership, a proposed 90-day approach, and contact. No build step or runtime dependencies. Original raster character, landscape, city, landmarks, and terrain are in `assets/`. The scene is drawn with Canvas 2D; text and controls use semantic HTML and CSS for accessibility. No CSS or SVG character drawings are used.
 
 ## Preview
@@ -46,6 +48,8 @@ Adventure view now follows 10 career checkpoints from 2021 through September 202
 Timeline content is in `PORTFOLIO.milestones` in `content.js`. Shared later-career tools are explicitly distinguished from confirmed milestone-specific tools. The supplied 20K and 30K figures do not assume a currency or profit definition.
 
 Run locally with `python -m http.server 8080` and open http://localhost:8080. Run `node verify.cjs` for desktop/mobile checkpoint, dialog, accessibility fallback, and browser exception checks.
+
+After publishing, run `node verify-live.cjs` on the development machine to check the public Pages site, artwork loads, a checkpoint dialog, mobile width, Reading mode, and browser errors.
 
 
 ## Adventure visibility fix
