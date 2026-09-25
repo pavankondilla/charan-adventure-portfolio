@@ -13,6 +13,12 @@ const { chromium } = require('C:/Users/DELL/AppData/Local/npm-cache/_npx/420ff84
 
   await page.goto('https://pavankondilla.github.io/charan-adventure-portfolio/', { waitUntil: 'load' });
   await page.waitForFunction(() => window.__journeyDebug?.state.assetsReady);
+  if (!await page.evaluate(() => window.__journeyDebug.state.screenLocked)) throw new Error('Adventure screen lock is unavailable');
+  await page.mouse.wheel(0, 450);
+  await page.waitForFunction(() => window.__journeyDebug.state.active === 1);
+  await page.mouse.wheel(0, 450);
+  await page.waitForTimeout(150);
+  if (await page.evaluate(() => window.__journeyDebug.state.active) !== 1) throw new Error('Rapid scrolling skipped a checkpoint');
   await page.locator('#journey-links a[href="#healthcare"]').click();
   await page.waitForFunction(() => window.__journeyDebug.state.active === 5);
   await page.locator('[data-checkpoint="5"]').click();
